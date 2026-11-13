@@ -12,10 +12,9 @@ Install Herdr and start it once. Then run:
 curl -fsSL https://raw.githubusercontent.com/CalvinWalzel/conductr/main/install.sh | sh
 ```
 
-The script puts the repo's git data in `~/.local/share/conductr.git` and checks its files out into
-`~/.config/herdr-app`: the `conductr` layout and the `conductr-*` mods. It never overwrites a file
-that is already there, and it leaves your keys, settings and other mods alone. Then it switches Herdr
-to the Conductr layout.
+The script adds the `conductr` layout and the `conductr-*` mods to Herdr's folder,
+`~/.config/herdr-app`, and switches Herdr to the Conductr layout. It never overwrites a file that is
+already there, and it leaves your keys, settings and other mods alone.
 
 On the first start, a setup dialog checks the programs Conductr uses (`git`, `gh`, `jq`, `python3`,
 `claude`, and `codex` if you use it). It asks before it changes anything outside Herdr:
@@ -34,7 +33,9 @@ changed mods at once. To update by hand, run the install command again.
 
 ## Change it
 
-The files in `~/.config/herdr-app` are a normal git work tree, with the git data elsewhere:
+Conductr's files in `~/.config/herdr-app` are a git checkout, but its `.git` folder is not there.
+Herdr's folder holds much more than Conductr, and it may already be a git repo of your own. So the
+history lives in `~/.local/share/conductr.git`, and you point git at it with `--git-dir`:
 
 ```sh
 alias conductr='git --git-dir="$HOME/.local/share/conductr.git"'
