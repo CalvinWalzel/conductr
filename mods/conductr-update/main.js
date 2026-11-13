@@ -1,5 +1,5 @@
 // The Conductr update dialog: what changed in each release since this checkout's, from the
-// changelog/<version>.md of each newer release, with Install (⌘↵) and Cancel (Esc). conductr-chrome finds the
+// changelog/<version>.md of each newer release, with Update (⌘↵) and Cancel (Esc). conductr-chrome finds the
 // releases and installs; this only shows shared("conductr-chrome.update"):
 //   { from: "v0.1.0" | null, to: "v0.3.0", notes: [{ version, date, blocks }] }, newest first, where a
 //   block is { text } (markdown) or { image, width, height } (a path under Herdr's folder)
@@ -57,6 +57,6 @@ export default class Update extends View {
         .child(Scrollbar.vertical("releases").mode("always").absolute().inset_0()))
       .child(h_flex().justify_end().gap(8)
         .child(button("cancel", ["Cancel"], false, () => closeOverlay(props().overlay)))
-        .when(Boolean(update), (el) => el.child(button("install", ["Install", div().text_size(12).opacity(0.8).child("⌘↵")], true, () => this.install()))));
+        .when(Boolean(update), (el) => el.child(button("update", ["Update", div().text_size(12).opacity(0.8).child("⌘↵")], true, () => this.install()))));
   }
 }

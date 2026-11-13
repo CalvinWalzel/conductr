@@ -29,7 +29,7 @@ It also asks for your branch prefix and the prompt that Create PR sends. Setting
 ## Updates
 
 Herdr checks for a new release every hour. When one exists, a blue button shows next to Settings.
-It opens the changelog of every release you don't have yet, and Install updates. Herdr reloads the
+It opens the changelog of every release you don't have yet, and Update installs it. Herdr reloads the
 changed mods at once. To update by hand, run the install command again.
 
 ## Change it
