@@ -1,0 +1,12 @@
+// osascript -l JavaScript paste-image.jxa <file.png>: saves the clipboard's image as PNG; prints the path, or nothing.
+ObjC.import("AppKit");
+function run(argv) {
+  const board = $.NSPasteboard.generalPasteboard;
+  let data = board.dataForType($.NSPasteboardTypePNG);
+  if (data.isNil()) {
+    const tiff = board.dataForType($.NSPasteboardTypeTIFF);
+    if (tiff.isNil()) return "";
+    data = $.NSBitmapImageRep.imageRepWithData(tiff).representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $());
+  }
+  return data.writeToFileAtomically(argv[0], true) ? argv[0] : "";
+}

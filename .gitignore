@@ -1,0 +1,18 @@
+# Conductr's files in Herdr's folder. Everything else here is Herdr's or yours.
+/*
+!/.gitignore
+!/README.md
+!/install.sh
+!/layouts/
+/layouts/*
+!/layouts/conductr.json
+!/mods/
+/mods/*
+!/mods/conductr-*/
+
+# Made by Herdr inside mod folders
+*.d.ts
+jsconfig.json
+mods/conductr-clone/.avatars/
+mods/conductr-settings/.images/*
+!mods/conductr-settings/.images/.gitkeep
