@@ -28,7 +28,7 @@ It also asks for your branch prefix and the prompt that Create PR sends. Setting
 
 ## Updates
 
-Herdr checks for new commits every 6 hours and shows a toast. Click it to update. Herdr reloads the
+Herdr checks for new commits every hour and shows a toast. Click it to update. Herdr reloads the
 changed mods at once. To update by hand, run the install command again.
 
 ## Change it

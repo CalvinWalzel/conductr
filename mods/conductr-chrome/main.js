@@ -99,15 +99,17 @@ function migrateShared() {
 // Conductr's own repo: install.sh keeps its git data here and checks its files out into Herdr's folder.
 const conductr = (...args) => exec("sh", ["-c", 'git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" "$@"', "x", ...args])
   .catch(() => ({ code: 1, stdout: "", stderr: "" }));
-const UPDATE_EVERY = 6 * 3600 * 1000;
+const UPDATE_EVERY = 3600 * 1000;
 const UPDATE_SEEN = "conductr-chrome.update-seen";
 
-// Fetches; new commits upstream get one toast each time upstream moves, and clicking it updates.
-async function checkUpdates() {
+// Fetches; new commits upstream get one toast each time upstream moves (by hand: every time), and
+// clicking it updates.
+async function checkUpdates(byHand = false) {
   if ((await conductr("fetch", "--quiet")).code !== 0) return;
   const upstream = (await conductr("rev-parse", "--verify", "--quiet", "@{u}")).stdout.trim();
   const count = Number((await conductr("rev-list", "--count", "HEAD..@{u}")).stdout.trim() || 0);
-  if (!upstream || !count || shared(UPDATE_SEEN) === upstream) return;
+  if (byHand && upstream && !count) notify({ title: "Conductr is up to date", level: "success" });
+  if (!upstream || !count || (!byHand && shared(UPDATE_SEEN) === upstream)) return;
   setShared(UPDATE_SEEN, upstream);
   const subjects = (await conductr("log", "--format=• %s", "-n", "5", "HEAD..@{u}")).stdout.trim();
   notify({ title: `Conductr update: ${count} new change${count === 1 ? "" : "s"}`, body: `${subjects}\nClick to update.`,
@@ -125,7 +127,7 @@ export default class ConductrChrome extends View {
     this.memory = null;
     if (props()?.footer) return;
     migrateShared();
-    // "conductr-chrome.toggle-sidebar" / ".restore" / ".update" (a key, a toast or `herdr-app do`);
+    // "conductr-chrome.toggle-sidebar" / ".restore" / ".update" / ".check-updates" (a key, a toast or `herdr-app do`);
     // only this copy listens.
     cx.spawn(async () => {
       for (;;) {
@@ -133,6 +135,7 @@ export default class ConductrChrome extends View {
         if (command === "toggle-sidebar") toggleSidebar();
         if (command === "restore") restore();
         if (command === "update") update();
+        if (command === "check-updates") checkUpdates(true);
       }
     });
     cx.spawn(async (cx) => {
