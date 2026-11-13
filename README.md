@@ -60,5 +60,5 @@ Commits on `main` reach nobody until you release them. A release is a `v*` tag a
 
 ```sh
 # 1. Add "## 0.2.0 - 2026-11-20" with a list of changes to the top of CHANGELOG.md, then:
-conductr commit -am "Release 0.2.0" && conductr tag v0.2.0 && conductr push --follow-tags
+conductr commit -am "Release 0.2.0" && conductr tag -a v0.2.0 -m "Conductr 0.2.0" && conductr push --follow-tags
 ```
