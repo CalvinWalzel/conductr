@@ -111,14 +111,17 @@ const MEDIA = "data/conductr-chrome/releases";
 // The image is still only in git: copy it out of the release, and measure it.
 async function releaseImage(tag, src) {
   const path = `${MEDIA}/${tag}/${src}`;
-  const r = await exec("sh", ["-c", 'mkdir -p "$(dirname "$2")" && git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" show "$1" > "$2" && sips -g pixelWidth -g pixelHeight "$2"',
+  const r = await exec("sh", ["-c", '{ test -s "$2" || { mkdir -p "$(dirname "$2")" && git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" show "$1" > "$2"; }; } && sips -g pixelWidth -g pixelHeight "$2"',
     "x", `${tag}:changelog/${src}`, `${appHome()}/${path}`]).catch(() => null);
   const [width, height] = ["pixelWidth", "pixelHeight"].map((key) => Number(r?.stdout.match(new RegExp(`${key}: (\\d+)`))?.[1]));
   return r?.code === 0 && width && height ? { image: path, width, height } : null;
 }
 
-async function releaseNotes(tag) {
-  const markdown = (await conductr("show", `${tag}:changelog/${tag.slice(1)}.md`)).stdout;
+// A release without a notes file lists its commits since the release before it (`previous`).
+async function releaseNotes(tag, previous) {
+  const file = await conductr("show", `${tag}:changelog/${tag.slice(1)}.md`);
+  const markdown = file.code === 0 ? file.stdout
+    : (await conductr("log", "--no-merges", "--format=- %s", "-n", "30", previous ? `${previous}..${tag}` : tag)).stdout;
   const blocks = [];
   let text = [];
   const flush = () => { if (text.join("\n").trim()) blocks.push({ text: text.join("\n").trim() }); text = []; };
@@ -134,22 +137,27 @@ async function releaseNotes(tag) {
   return { version: tag.slice(1), date, blocks };
 }
 
+// Every release this checkout has, for conductr-settings' Changelog: { current, notes }, newest first.
+const CHANGELOG = "conductr-chrome.changelog";
+
 async function checkUpdates(byHand = false) {
-  if ((await conductr("fetch", "--tags", "--quiet")).code !== 0) return;
-  const newer = [];
-  for (const tag of (await conductr("tag", "--list", "v*", "--sort=-v:refname")).stdout.split("\n").filter(Boolean)) {
-    if ((await conductr("merge-base", "--is-ancestor", tag, "HEAD")).code === 0) break;
-    newer.push(tag);
-  }
+  // Offline, the installed releases still show.
+  await conductr("fetch", "--tags", "--quiet");
+  const tags = (await conductr("tag", "--list", "v*", "--sort=-v:refname")).stdout.split("\n").filter(Boolean);
+  const newer = [], installed = [];
+  for (const tag of tags) ((await conductr("merge-base", "--is-ancestor", tag, "HEAD")).code === 0 ? installed : newer).push(tag);
+  const notesOf = async (list) => {
+    const notes = [];
+    for (const tag of list) notes.push(await releaseNotes(tag, tags[tags.indexOf(tag) + 1]));
+    return notes;
+  };
+  setShared(CHANGELOG, { current: installed[0] ?? null, notes: await notesOf(installed) });
   if (!newer.length) {
     setShared(UPDATE, null);
     if (byHand) notify({ title: "Conductr is up to date", level: "success" });
     return;
   }
-  const current = (await conductr("describe", "--tags", "--abbrev=0", "--match", "v*", "HEAD")).stdout.trim() || null;
-  const notes = [];
-  for (const tag of newer) notes.push(await releaseNotes(tag));
-  setShared(UPDATE, { from: current, to: newer[0], notes });
+  setShared(UPDATE, { from: installed[0] ?? null, to: newer[0], notes: await notesOf(newer) });
 }
 
 async function update() {
@@ -157,8 +165,8 @@ async function update() {
   if (!to) return;
   const r = await conductr("merge", "--ff-only", "--quiet", to);
   if (r.code !== 0) return notify({ title: "Couldn't update Conductr", body: r.stderr.trim(), level: "error" });
-  setShared(UPDATE, null);
   notify({ title: `Conductr updated to ${to.replace(/^v/, "")}`, level: "success" });
+  await checkUpdates();
 }
 
 const showUpdate = () => openOverlay({ mod: "conductr-update", kind: "dialog", width: 560, height: 560 });

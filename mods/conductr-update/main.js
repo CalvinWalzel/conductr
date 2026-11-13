@@ -5,7 +5,7 @@
 //   block is { text } (markdown) or { image, width, height } (a path under Herdr's folder)
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex, TextView, Scrollbar } from "gpui-base";
-import { run, props, closeOverlay, theme, shared } from "herdr";
+import { run, props, closeOverlay, openOverlay, theme, shared } from "herdr";
 
 const UPDATE = "conductr-chrome.update";
 // The release list's width inside the dialog: wider images shrink to it.
@@ -29,7 +29,9 @@ export default class Update extends View {
       .border_color(primary ? t.solid : t.input).bg(primary ? t.solid : t.background).text_color(primary ? t.solid_foreground : t.foreground)
       .cursor_pointer().hover((s) => s.opacity(0.88)).on_click(onClick).children(children);
     const block = (version) => (b, index) => b.image
-      ? image(b.image).w(Math.min(b.width, WIDE)).h(Math.min(b.width, WIDE) * b.height / b.width).rounded(8).my(4)
+      ? div().id(`image-${version}-${index}`).my(4).cursor_pointer().tooltip("Click to enlarge")
+        .on_click(() => openOverlay({ mod: "conductr-image", kind: "dialog", frame: "none", width: 0.8, height: 0.8, props: b }))
+        .child(image(b.image).w(Math.min(b.width, WIDE)).h(Math.min(b.width, WIDE) * b.height / b.width).rounded(8))
       : TextView.markdown(`release-${version}-${index}`, b.text).text_size(13).text_color(t.muted);
     const release = ({ version, date, blocks }) => v_flex().gap(8).pb(18)
       .child(h_flex().gap(8).items_baseline()

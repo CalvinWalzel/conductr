@@ -9,7 +9,7 @@
 //                                  .conductor/settings.toml, run by conductr-worktree ("" runs nothing)
 // A repo key is conductr-spaces': JSON [machine or null, absolute git common dir].
 import { View, div, svg, image } from "gpui-kit";
-import { v_flex, h_flex, InputState, Input, TextareaState, Textarea, Editor, EditorState, Popover } from "gpui-base";
+import { v_flex, h_flex, InputState, Input, TextareaState, Textarea, Editor, EditorState, Popover, TextView } from "gpui-base";
 import { props, closeOverlay, openOverlay, theme, shared, setShared, spaces, panes, exec, readTextFile, appHome, settings } from "herdr";
 import { repoKey } from "./repo-key.js";
 import { repoScripts } from "./scripts.js";
@@ -23,6 +23,8 @@ const BRANCH_PREFIX = "conductr-settings.branch-prefix";
 const DEFAULT_PR_PROMPT = "Create a draft pull request for this branch. Commit anything uncommitted, push the branch, write a short title and a description from the commits and the diff, then give me the link.";
 const DEFAULT_BRANCHES = ["main", "master", "main-dev"];
 const HERE = "mods/conductr-settings";
+// The Changelog page's width: wider images shrink to it.
+const CHANGELOG_WIDE = 460;
 // Hidden: Herdr reloads a mod when a file in its folder changes, which would reset the dialog.
 const IMAGES = `${HERE}/.images`;
 // ponytail: grids draw at most this many matches (no virtual list: its rows can't hold one click per cell); search finds the rest.
@@ -43,7 +45,7 @@ const topOf = (common) => common.endsWith("/.git") ? common.slice(0, -5) : null;
 
 export default class Settings extends View {
   init(_props, cx) {
-    this.section = props()?.repo ?? "general"; // "general", or a repo key
+    this.section = props()?.section ?? props()?.repo ?? "general"; // "general", "changelog", or a repo key
     this.page = "general"; // a repo's page: "general" | "scripts"
     this.expanded = new Set(props()?.repo ? [props().repo] : []); // repos whose pages show in the nav
     this.repos = [];
@@ -247,6 +249,31 @@ export default class Settings extends View {
           .on_click(() => { closeOverlay(props().overlay); openOverlay({ mod: "conductr-setup", kind: "dialog", modal: true, width: 600, height: 680 }); }), t));
   }
 
+  // Every installed release, newest first, from conductr-chrome, and a way to the newer one if any.
+  changelog(t) {
+    const log = shared("conductr-chrome.changelog");
+    const update = shared("conductr-chrome.update");
+    const block = (version) => (b, index) => b.image
+      ? div().id(`log-image-${version}-${index}`).my(4).cursor_pointer().tooltip("Click to enlarge")
+        .on_click(() => openOverlay({ mod: "conductr-image", kind: "dialog", frame: "none", width: 0.8, height: 0.8, props: b }))
+        .child(image(b.image).w(Math.min(b.width, CHANGELOG_WIDE)).h(Math.min(b.width, CHANGELOG_WIDE) * b.height / b.width).rounded(8))
+      : TextView.markdown(`log-${version}-${index}`, b.text).text_size(13).text_color(t.muted);
+    const release = ({ version, date, blocks }) => v_flex().gap(8).pb(22)
+      .child(h_flex().gap(8).items_baseline()
+        .child(div().text_size(14).font_semibold().text_color(t.foreground).child(version))
+        .when(Boolean(date), (el) => el.child(div().text_size(12).text_color(t.dim).child(date)))
+        .when(`v${version}` === log.current, (el) => el.child(div().px(6).h(18).flex().items_center().rounded(5).bg(t.ansi2 + "26")
+          .text_size(10.5).font_semibold().text_color(t.ansi2).child("Installed"))))
+      .children(blocks.map(block(version)));
+    return v_flex().pb(10)
+      .when(Boolean(update?.to), (el) => el.child(h_flex().mb(20).px(12).py(10).gap(10).items_center().rounded(8).bg(t.ansi4 + "1f")
+        .child(div().flex_1().text_size(12.5).text_color(t.foreground).child(`Conductr ${update.to.replace(/^v/, "")} is available.`))
+        .child(div().id("see-update").h(28).px(10).flex().items_center().rounded(7).bg(t.ansi4).text_color("#ffffff").text_size(12.5)
+          .cursor_pointer().hover((s) => s.opacity(0.88)).child("See what's new")
+          .on_click(() => { closeOverlay(props().overlay); openOverlay({ mod: "conductr-update", kind: "dialog", width: 560, height: 560 }); }))))
+      .children(log?.notes?.length ? log.notes.map(release) : [div().text_size(12).text_color(t.dim).child(log ? "No releases yet." : "Loading…")]);
+  }
+
   grid(repo, t) {
     const query = this.search.value().trim().toLowerCase();
     const cell = (id, child, tip, action) => div().id(id).size(38).flex_none().rounded(8).flex().items_center().justify_center()
@@ -367,7 +394,7 @@ export default class Settings extends View {
       .cursor_pointer().text_color(on ? t.foreground : t.muted).when(on, (el) => el.bg(t.selected))
       .hover((s) => s.bg(on ? t.selected : t.hover)).on_click(action).children(child);
     const pages = [["general", "General", "sliders-horizontal"], ["scripts", "Scripts", "file-code"]];
-    const title = this.section === "general" ? "General" : repo ? pages.find(([id]) => id === this.page)[1] : "";
+    const title = this.section === "general" ? "General" : this.section === "changelog" ? "Changelog" : repo ? pages.find(([id]) => id === this.page)[1] : "";
     const repoNav = (r) => v_flex().gap(2)
       .child(navRow(`nav-${r.key}`, [this.preview(r, 16, t), div().truncate().child(r.name)], false, (_e, cx) => this.toggleRepo(r.key, cx)))
       .when(this.expanded.has(r.key), (el) => el.child(v_flex().ml(15).pl(6).gap(2).border_l(1).border_color(t.border).children(
@@ -378,6 +405,7 @@ export default class Settings extends View {
       .child(v_flex().w(210).h_full().flex_none().p(10).gap(2).bg(t.chrome).border_r(1).border_color(t.border)
         .child(div().px(8).pt(4).pb(10).text_size(14).font_semibold().child("Conductr settings"))
         .child(navRow("nav-general", [svg("mods/workspace-chrome/settings.svg").size(14), "General"], this.section === "general", (_e, cx) => this.select("general", cx)))
+        .child(navRow("nav-changelog", [svg(`${HERE}/lucide/scroll-text.svg`).size(14), "Changelog"], this.section === "changelog", (_e, cx) => this.select("changelog", cx)))
         .child(div().px(8).pt(16).pb(6).text_size(11).text_color(t.dim).child("Repositories"))
         .child(div().id("nav-repos").flex_1().min_h(0).overflow_y_scrollbar().child(v_flex().gap(2).children(
           this.repos.map(repoNav)))))
@@ -388,7 +416,7 @@ export default class Settings extends View {
             .text_color(t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Close")
             .on_click(() => closeOverlay(props().overlay)).child(svg("mods/workspace-chrome/x.svg").size(15))))
         .child(div().id("page").flex_1().min_h(0).overflow_y_scrollbar().px(24).pt(20)
-          .child(this.section === "general" ? this.general(t)
+          .child(this.section === "general" ? this.general(t) : this.section === "changelog" ? this.changelog(t)
             : repo ? (this.page === "scripts" ? this.scripts(repo, t) : this.repoPage(repo, t))
             : div().text_size(12).text_color(t.dim).child("Loading…"))));
   }
