@@ -1,12 +1,15 @@
 // The Conductr update dialog: what changed in each release since this checkout's, from the
-// newest release's CHANGELOG.md, with Install (⌘↵) and Cancel (Esc). conductr-chrome finds the
+// changelog/<version>.md of each newer release, with Install (⌘↵) and Cancel (Esc). conductr-chrome finds the
 // releases and installs; this only shows shared("conductr-chrome.update"):
-//   { from: "v0.1.0" | null, to: "v0.3.0", notes: [{ version, date, body }] }, newest first
-import { View, div } from "gpui-kit";
+//   { from: "v0.1.0" | null, to: "v0.3.0", notes: [{ version, date, blocks }] }, newest first, where a
+//   block is { text } (markdown) or { image, width, height } (a path under Herdr's folder)
+import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex, TextView, Scrollbar } from "gpui-base";
 import { run, props, closeOverlay, theme, shared } from "herdr";
 
 const UPDATE = "conductr-chrome.update";
+// The release list's width inside the dialog: wider images shrink to it.
+const WIDE = 500;
 
 export default class Update extends View {
   init(_props, cx) {
@@ -25,11 +28,14 @@ export default class Update extends View {
     const button = (id, children, primary, onClick) => h_flex().id(id).h(32).px(12).gap(6).items_center().rounded(8).border_1()
       .border_color(primary ? t.solid : t.input).bg(primary ? t.solid : t.background).text_color(primary ? t.solid_foreground : t.foreground)
       .cursor_pointer().hover((s) => s.opacity(0.88)).on_click(onClick).children(children);
-    const release = ({ version, date, body }, index) => v_flex().gap(6).pb(18)
+    const block = (version) => (b, index) => b.image
+      ? image(b.image).w(Math.min(b.width, WIDE)).h(Math.min(b.width, WIDE) * b.height / b.width).rounded(8).my(4)
+      : TextView.markdown(`release-${version}-${index}`, b.text).text_size(13).text_color(t.muted);
+    const release = ({ version, date, blocks }) => v_flex().gap(8).pb(18)
       .child(h_flex().gap(8).items_baseline()
         .child(div().text_size(14).font_semibold().text_color(t.foreground).child(version))
         .when(Boolean(date), (el) => el.child(div().text_size(12).text_color(t.dim).child(date))))
-      .child(TextView.markdown(`release-${index}`, body || "No notes.").text_size(13).text_color(t.muted));
+      .children(blocks?.length ? blocks.map(block(version)) : [div().text_size(13).text_color(t.dim).child("No notes.")]);
     const from = update?.from?.replace(/^v/, "");
     return v_flex().id("conductr-update").size_full().min_h(0).px(22).pt(20).pb(18).gap(14).rounded(8).bg(t.popover).text_size(13)
       .track_focus(this.handle)

@@ -100,33 +100,56 @@ function migrateShared() {
 const conductr = (...args) => exec("sh", ["-c", 'git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" "$@"', "x", ...args])
   .catch(() => ({ code: 1, stdout: "", stderr: "" }));
 const UPDATE_EVERY = 3600 * 1000;
-// Releases are tags (v0.2.0) with a section each in CHANGELOG.md. While a newer release exists than
-// the one this checkout has: { from, to, notes: [{ version, date, body }] }; the footer shows a button.
+// Releases are tags (v0.2.0), each with its notes in changelog/0.2.0.md: markdown, and images as
+// lines of their own, ![alt](media/x.png), relative to changelog/. While newer releases exist than
+// this checkout's: { from, to, notes: [{ version, date, blocks }] }, newest first, where a block is
+// { text } (markdown) or { image, width, height } (a path under Herdr's folder). The footer shows a button.
 const UPDATE = "conductr-chrome.update";
+const IMAGE_LINE = /^\s*!\[[^\]]*\]\(([^)\s]+)\)\s*$/;
+const MEDIA = "data/conductr-chrome/releases";
 
-// CHANGELOG.md's "## 0.3.0 - 2026-11-20" sections, newest first, down to (not including) `current`.
-function releaseNotes(changelog, current) {
-  const notes = [];
-  for (const section of changelog.split(/^## /m).slice(1)) {
-    const [head, ...body] = section.split("\n");
-    const [version, date] = head.split(/\s+-\s+/);
-    if (current && version.trim() === current.replace(/^v/, "")) break;
-    notes.push({ version: version.trim(), date: date?.trim() ?? "", body: body.join("\n").trim() });
+// The image is still only in git: copy it out of the release, and measure it.
+async function releaseImage(tag, src) {
+  const path = `${MEDIA}/${tag}/${src}`;
+  const r = await exec("sh", ["-c", 'mkdir -p "$(dirname "$2")" && git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" show "$1" > "$2" && sips -g pixelWidth -g pixelHeight "$2"',
+    "x", `${tag}:changelog/${src}`, `${appHome()}/${path}`]).catch(() => null);
+  const [width, height] = ["pixelWidth", "pixelHeight"].map((key) => Number(r?.stdout.match(new RegExp(`${key}: (\\d+)`))?.[1]));
+  return r?.code === 0 && width && height ? { image: path, width, height } : null;
+}
+
+async function releaseNotes(tag) {
+  const markdown = (await conductr("show", `${tag}:changelog/${tag.slice(1)}.md`)).stdout;
+  const blocks = [];
+  let text = [];
+  const flush = () => { if (text.join("\n").trim()) blocks.push({ text: text.join("\n").trim() }); text = []; };
+  for (const line of markdown.split("\n")) {
+    const src = line.match(IMAGE_LINE)?.[1];
+    if (!src || /^[a-z]+:|^\//i.test(src)) { text.push(line); continue; }
+    flush();
+    const image = await releaseImage(tag, src);
+    if (image) blocks.push(image);
   }
-  return notes;
+  flush();
+  const date = (await conductr("for-each-ref", "--format=%(creatordate:short)", `refs/tags/${tag}`)).stdout.trim();
+  return { version: tag.slice(1), date, blocks };
 }
 
 async function checkUpdates(byHand = false) {
   if ((await conductr("fetch", "--tags", "--quiet")).code !== 0) return;
-  const latest = (await conductr("tag", "--list", "v*", "--sort=-v:refname")).stdout.split("\n")[0].trim();
-  if (!latest || (await conductr("merge-base", "--is-ancestor", latest, "HEAD")).code === 0) {
+  const newer = [];
+  for (const tag of (await conductr("tag", "--list", "v*", "--sort=-v:refname")).stdout.split("\n").filter(Boolean)) {
+    if ((await conductr("merge-base", "--is-ancestor", tag, "HEAD")).code === 0) break;
+    newer.push(tag);
+  }
+  if (!newer.length) {
     setShared(UPDATE, null);
     if (byHand) notify({ title: "Conductr is up to date", level: "success" });
     return;
   }
   const current = (await conductr("describe", "--tags", "--abbrev=0", "--match", "v*", "HEAD")).stdout.trim() || null;
-  const changelog = (await conductr("show", `${latest}:CHANGELOG.md`)).stdout;
-  setShared(UPDATE, { from: current, to: latest, notes: releaseNotes(changelog, current) });
+  const notes = [];
+  for (const tag of newer) notes.push(await releaseNotes(tag));
+  setShared(UPDATE, { from: current, to: newer[0], notes });
 }
 
 async function update() {

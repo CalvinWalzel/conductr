@@ -47,7 +47,7 @@ Herdr reloads a mod as soon as you save a file in it. `herdr-app check mods/<mod
 ## Remove it
 
 ```sh
-cd ~/.config/herdr-app && rm -rf mods/conductr-* layouts/conductr.json install.sh README.md CHANGELOG.md .gitignore
+cd ~/.config/herdr-app && rm -rf mods/conductr-* layouts/conductr.json install.sh README.md changelog .gitignore
 rm -rf ~/.local/share/conductr.git
 ```
 
@@ -55,10 +55,13 @@ Then pick another layout with `ctrl-shift-l`.
 
 ## Release
 
-Commits on `main` reach nobody until you release them. A release is a `v*` tag and a section in
-`CHANGELOG.md`, newest first:
+Commits on `main` reach nobody until you release them. A release is an annotated `v*` tag and its
+notes in `changelog/<version>.md`. The notes are markdown: a short text, then the list of changes.
+An image on a line of its own, like `![The new header](media/header.png)`, shows in the update
+dialog; put the file in `changelog/media/`. The tag's date shows next to the version.
 
 ```sh
-# 1. Add "## 0.2.0 - 2026-11-20" with a list of changes to the top of CHANGELOG.md, then:
-conductr commit -am "Release 0.2.0" && conductr tag -a v0.2.0 -m "Conductr 0.2.0" && conductr push --follow-tags
+# Write changelog/0.2.0.md, then:
+conductr add changelog && conductr commit -am "Release 0.2.0"
+conductr tag -a v0.2.0 -m "Conductr 0.2.0" && conductr push --follow-tags
 ```
