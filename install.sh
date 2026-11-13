@@ -27,8 +27,8 @@ else
   git --git-dir="$gitdir" config status.showUntrackedFiles no
   # read-tree refuses to overwrite files that are already there.
   if ! out=$(g read-tree -mu HEAD 2>&1); then
-    echo "These files are already in $herdr. Move them away and run this again:" >&2
-    printf '%s\n' "$out" | sed -n 's/^\t/  /p' >&2
+    echo "Conductr would overwrite a file that is already in $herdr. Move it away and run this again:" >&2
+    printf '%s\n' "$out" | sed -n "s/.*file '\(.*\)' would.*/  \1/p" >&2
     rm -rf "$gitdir"
     exit 1
   fi
