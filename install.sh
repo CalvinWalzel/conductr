@@ -30,7 +30,7 @@ else
   # Herdr's folder holds much more than Conductr; status shows only Conductr's files.
   git --git-dir="$gitdir" config status.showUntrackedFiles no
   release=$(latest)
-  [ -z "$release" ] || git --git-dir="$gitdir" update-ref "$(git --git-dir="$gitdir" symbolic-ref HEAD)" "$release"
+  [ -z "$release" ] || git --git-dir="$gitdir" update-ref "$(git --git-dir="$gitdir" symbolic-ref HEAD)" "$release^{commit}"
   # read-tree refuses to overwrite files that are already there.
   if ! out=$(g read-tree -mu HEAD 2>&1); then
     echo "Conductr would overwrite a file that is already in $herdr. Move it away and run this again:" >&2
