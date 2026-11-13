@@ -28,7 +28,8 @@ It also asks for your branch prefix and the prompt that Create PR sends. Setting
 
 ## Updates
 
-Herdr checks for new commits every hour and shows a toast. Click it to update. Herdr reloads the
+Herdr checks for a new release every hour. When one exists, a blue button shows next to Settings.
+It opens the changelog of every release you don't have yet, and Install updates. Herdr reloads the
 changed mods at once. To update by hand, run the install command again.
 
 ## Change it
@@ -46,8 +47,18 @@ Herdr reloads a mod as soon as you save a file in it. `herdr-app check mods/<mod
 ## Remove it
 
 ```sh
-cd ~/.config/herdr-app && rm -rf mods/conductr-* layouts/conductr.json install.sh README.md .gitignore
+cd ~/.config/herdr-app && rm -rf mods/conductr-* layouts/conductr.json install.sh README.md CHANGELOG.md .gitignore
 rm -rf ~/.local/share/conductr.git
 ```
 
 Then pick another layout with `ctrl-shift-l`.
+
+## Release
+
+Commits on `main` reach nobody until you release them. A release is a `v*` tag and a section in
+`CHANGELOG.md`, newest first:
+
+```sh
+# 1. Add "## 0.2.0 - 2026-11-20" with a list of changes to the top of CHANGELOG.md, then:
+conductr commit -am "Release 0.2.0" && conductr tag v0.2.0 && conductr push --follow-tags
+```

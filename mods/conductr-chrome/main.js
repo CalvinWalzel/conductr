@@ -100,31 +100,45 @@ function migrateShared() {
 const conductr = (...args) => exec("sh", ["-c", 'git --git-dir="${CONDUCTR_GIT_DIR:-$HOME/.local/share/conductr.git}" "$@"', "x", ...args])
   .catch(() => ({ code: 1, stdout: "", stderr: "" }));
 const UPDATE_EVERY = 3600 * 1000;
-// { count, log } while upstream has commits this checkout lacks; the footer shows an update button.
+// Releases are tags (v0.2.0) with a section each in CHANGELOG.md. While a newer release exists than
+// the one this checkout has: { from, to, notes: [{ version, date, body }] }; the footer shows a button.
 const UPDATE = "conductr-chrome.update";
 
+// CHANGELOG.md's "## 0.3.0 - 2026-11-20" sections, newest first, down to (not including) `current`.
+function releaseNotes(changelog, current) {
+  const notes = [];
+  for (const section of changelog.split(/^## /m).slice(1)) {
+    const [head, ...body] = section.split("\n");
+    const [version, date] = head.split(/\s+-\s+/);
+    if (current && version.trim() === current.replace(/^v/, "")) break;
+    notes.push({ version: version.trim(), date: date?.trim() ?? "", body: body.join("\n").trim() });
+  }
+  return notes;
+}
+
 async function checkUpdates(byHand = false) {
-  if ((await conductr("fetch", "--quiet")).code !== 0) return;
-  const count = Number((await conductr("rev-list", "--count", "HEAD..@{u}")).stdout.trim() || 0);
-  const log = count ? (await conductr("log", "--format=- %s · %cr", "-n", "20", "HEAD..@{u}")).stdout.trim() : "";
-  setShared(UPDATE, count ? { count, log } : null);
-  if (byHand && !count) notify({ title: "Conductr is up to date", level: "success" });
+  if ((await conductr("fetch", "--tags", "--quiet")).code !== 0) return;
+  const latest = (await conductr("tag", "--list", "v*", "--sort=-v:refname")).stdout.split("\n")[0].trim();
+  if (!latest || (await conductr("merge-base", "--is-ancestor", latest, "HEAD")).code === 0) {
+    setShared(UPDATE, null);
+    if (byHand) notify({ title: "Conductr is up to date", level: "success" });
+    return;
+  }
+  const current = (await conductr("describe", "--tags", "--abbrev=0", "--match", "v*", "HEAD")).stdout.trim() || null;
+  const changelog = (await conductr("show", `${latest}:CHANGELOG.md`)).stdout;
+  setShared(UPDATE, { from: current, to: latest, notes: releaseNotes(changelog, current) });
 }
 
 async function update() {
-  const r = await conductr("pull", "--ff-only", "--quiet");
+  const to = shared(UPDATE)?.to;
+  if (!to) return;
+  const r = await conductr("merge", "--ff-only", "--quiet", to);
   if (r.code !== 0) return notify({ title: "Couldn't update Conductr", body: r.stderr.trim(), level: "error" });
   setShared(UPDATE, null);
-  notify({ title: "Conductr updated", level: "success" });
+  notify({ title: `Conductr updated to ${to.replace(/^v/, "")}`, level: "success" });
 }
 
-// The changelog in conductr-confirm; Install runs the update.
-function showUpdate({ count, log }) {
-  openOverlay({ mod: "conductr-confirm", kind: "dialog", width: 540, height: Math.min(480, 170 + 22 * Math.min(count, 20)), props: {
-    title: `Conductr update: ${count} new change${count === 1 ? "" : "s"}`,
-    detail: `${log}${count > 20 ? `\n- …and ${count - 20} more` : ""}`,
-    action: "Install", command: { name: "conductr-chrome.update" } } });
-}
+const showUpdate = () => openOverlay({ mod: "conductr-update", kind: "dialog", width: 560, height: 560 });
 
 export default class ConductrChrome extends View {
   init(_props, cx) {
@@ -193,10 +207,10 @@ export default class ConductrChrome extends View {
     return (collapsed ? v_flex().items_center().px(0) : h_flex().items_center().px(8)).size_full().bg(t.chrome).border_t(1).border_color(t.border)
       .pt(4).pb(8).gap(4).text_size(13)
       .child(settings)
-      .when(Boolean(update), el => el.child(div().id("conductr-update").size(28).flex_none().flex().items_center().justify_center()
+      .when(Boolean(update?.to), el => el.child(div().id("conductr-update").size(28).flex_none().flex().items_center().justify_center()
         .rounded(8).bg(t.ansi4 + "26").text_color(t.ansi4).cursor_pointer().hover(s => s.bg(t.ansi4 + "40"))
-        .tooltip(`Conductr update: ${update.count} new change${update.count === 1 ? "" : "s"}`)
-        .on_click(() => showUpdate(update)).child(svg("mods/conductr-chrome/circle-arrow-down.svg").size(15))));
+        .tooltip(`Conductr ${update.to.replace(/^v/, "")} is available`)
+        .on_click(showUpdate).child(svg("mods/conductr-chrome/circle-arrow-down.svg").size(15))));
   }
 
   render() {
