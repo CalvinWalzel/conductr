@@ -63,12 +63,12 @@ function avatar(repo, t, size = 16) {
 }
 const tilde = (path) => (path.startsWith(home()) ? `~${path.slice(home().length)}` : path);
 
-// Hibernate, where these panes hold an agent session that is not busy: conductr-chrome's sessions.sh
-// stops it, and conductr-chrome resumes it when its tab shows again.
+// Hibernate, where these panes hold an agent session that is not busy: conductr-chrome stops it,
+// asks first where a draft or a background command would be lost, and resumes it when its tab shows again.
 function hibernate(match) {
   const idle = panes().filter((pane) => match(pane) && pane.terminal && !pane.terminal.includes("/") && pane.program?.agent && !["working", "blocked"].includes(pane.status))
     .map((pane) => pane.terminal);
-  return idle.length ? [["Hibernate", "exec", { cmd: "sh", args: [`${appHome()}/mods/conductr-chrome/sessions.sh`, "hibernate", ...idle] }, { icon: "mods/conductr-settings/lucide/moon.svg" }]] : [];
+  return idle.length ? [["Hibernate", "hibernate", idle, { icon: "mods/conductr-settings/lucide/moon.svg" }]] : [];
 }
 
 function items(p, git, agents, recents) {
@@ -358,6 +358,7 @@ export default class Menu extends View {
     else if (it[1] === "pane-rename") openOverlay({ mod: "conductr-prompt", kind: "dialog", width: 420, height: 210,
       props: { title: "Rename pane", value: it[2].name, hint: "Empty: its own label again.", store: { key: PANE_NAMES, id: it[2].pane } } });
     else if (it[1] === "exec") exec(it[2].cmd, it[2].args);
+    else if (it[1] === "hibernate") { setShared("conductr-chrome.hibernate-picked", it[2]); run("conductr-chrome.hibernate-picked"); }
     // The top bar's Open button then opens the same app.
     else if (it[1] === "open-in") { exec("open", ["-a", it[2].app, it[2].path]); setShared("conductr-tabs.open-app", it[2].key); }
     else if (it[1] === "review") run("tab.new", it[2]);

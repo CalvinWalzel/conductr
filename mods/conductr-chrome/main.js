@@ -105,7 +105,7 @@ async function restore({ tab, chats = true, only } = {}) {
 // A Claude Code session nobody used for a while stops, to free its memory (sessions.sh), and restore
 // resumes it when its tab shows. In use: its tab shows, or it works, waits for an answer or finished
 // unseen. The time counts from this app's start, since Claude's transcript files also change while a
-// session sits idle. An unsent draft is lost.
+// session sits idle.
 const HIBERNATE_EVERY = 5 * 60 * 1000;
 const BUSY = ["working", "blocked", "done"];
 const used = new Map();
@@ -128,6 +128,20 @@ async function hibernate(now = false) {
     && !BUSY.includes(pane.status) && (now || Date.now() - used.get(pane.terminal) > minutes * 60000))
     .map((pane) => pane.terminal);
   if (idle.length) await sessions("hibernate", ...idle);
+}
+
+// Right-click Hibernate (conductr-menu) names its terminals in PICKED. A session that would lose a
+// draft or a background command stops only after the person confirms.
+const PICKED = "conductr-chrome.hibernate-picked";
+let unsaved = [];
+async function hibernatePicked(force) {
+  const picked = force ? unsaved : (shared(PICKED) ?? []);
+  if (!picked.length) return;
+  const result = await sessions("hibernate", ...(force ? ["-f"] : []), ...picked);
+  unsaved = force ? [] : [...(result?.stderr ?? "").matchAll(/^unsaved (.+)$/gm)].map((match) => match[1]);
+  if (unsaved.length) openOverlay({ mod: "conductr-confirm", kind: "dialog", width: 540, height: 190, props: { title: "Hibernate and lose the draft?", action: "Hibernate", danger: true,
+    detail: `${count(unsaved.length)} ${unsaved.length === 1 ? "has" : "have"} an unsent draft or a running background command. Hibernation loses both.`,
+    command: { name: "conductr-chrome.hibernate-unsaved" } } });
 }
 
 // Claude Code updates itself, but a running session keeps its old version until it restarts.
@@ -241,7 +255,7 @@ export default class ConductrChrome extends View {
     this.memory = null;
     if (props()?.footer) return;
     migrateShared();
-    // "conductr-chrome.toggle-sidebar" / ".restore" / ".hibernate" / ".update-claude" / ".update" / ".check-updates"
+    // "conductr-chrome.toggle-sidebar" / ".restore" / ".hibernate" / ".hibernate-picked" / ".hibernate-unsaved" / ".update-claude" / ".update" / ".check-updates"
     // (a key, a toast or `herdr-app do`); only this copy listens.
     cx.spawn(async () => {
       for (;;) {
@@ -249,9 +263,14 @@ export default class ConductrChrome extends View {
         if (command === "toggle-sidebar") toggleSidebar();
         if (command === "restore") restore();
         if (command === "hibernate") hibernate(true);
+        if (command === "hibernate-picked") hibernatePicked(false);
+        if (command === "hibernate-unsaved") hibernatePicked(true);
         if (command === "update-claude") updateClaude();
         if (command === "update") update();
-        if (command === "check-updates") checkUpdates(true);
+        if (command === "check-updates") {
+          checkUpdates(true);
+          checkClaude();
+        }
       }
     });
     cx.spawn(async (cx) => {

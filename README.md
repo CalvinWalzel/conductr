@@ -29,9 +29,9 @@ It also asks for your branch prefix and the prompt that Create PR sends. Setting
 
 With the resume hooks, a Claude Code session that sits idle in a hidden tab for 30 minutes stops, to
 free its memory. It resumes when you open its tab. Settings changes the time, and 0 turns this off.
-An unsent draft and a background task of that session are lost. After a reboot, a session also
-resumes only when you open its tab. To hibernate a session at once, right-click its tab in the
-sidebar.
+A session with an unsent draft or a running background command does not stop. After a reboot, a
+session also resumes only when you open its tab. To hibernate a session at once, right-click its tab
+in the sidebar. With a draft or a background command, Conductr asks first, because hibernation loses both.
 
 Claude Code updates itself, but a running session keeps its old version. While such sessions run, a
 Claude button shows next to Settings. It restarts the ones that are not busy on the new version.
@@ -40,7 +40,8 @@ Claude button shows next to Settings. It restarts the ones that are not busy on 
 
 Herdr checks for a new release every hour. When one exists, a blue button shows next to Settings.
 It opens the changelog of every release you don't have yet, and Update installs it. Herdr reloads the
-changed mods at once. To update by hand, run the install command again.
+changed mods at once. Conductr settings, Changelog has a button that checks now. To update by hand,
+run the install command again.
 
 ## Change it
 

@@ -11,7 +11,7 @@
 // A repo key is conductr-spaces': JSON [machine or null, absolute git common dir].
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, TextareaState, Textarea, Editor, EditorState, Popover, TextView } from "gpui-base";
-import { props, closeOverlay, openOverlay, theme, shared, setShared, spaces, panes, exec, readTextFile, appHome, settings } from "herdr";
+import { props, closeOverlay, openOverlay, theme, shared, setShared, spaces, panes, exec, run, readTextFile, appHome, settings } from "herdr";
 import { repoKey } from "./repo-key.js";
 import { repoScripts } from "./scripts.js";
 
@@ -420,6 +420,11 @@ export default class Settings extends View {
       .child(v_flex().flex_1().min_w(0).h_full()
         .child(h_flex().h(52).px(24).flex_none().items_center().border_b(1).border_color(t.border)
           .child(div().flex_1().text_size(15).font_semibold().child(title))
+          // conductr-chrome answers with a toast, or with the banner above the releases.
+          .when(this.section === "changelog", (el) => el.child(div().id("check-updates").h(28).px(10).mr(8).flex().items_center().rounded(7)
+            .border_1().border_color(t.input).text_size(12.5).text_color(t.muted).cursor_pointer()
+            .hover((s) => s.bg(t.hover).text_color(t.foreground)).child("Check for updates")
+            .on_click(() => run("conductr-chrome.check-updates"))))
           .child(div().id("close").size(28).rounded(7).flex().items_center().justify_center().cursor_pointer()
             .text_color(t.muted).hover((s) => s.bg(t.hover).text_color(t.foreground)).tooltip("Close")
             .on_click(() => closeOverlay(props().overlay)).child(svg("mods/workspace-chrome/x.svg").size(15))))
