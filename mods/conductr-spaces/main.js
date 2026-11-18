@@ -82,7 +82,7 @@ function tabLabel(tab, ps) {
   const summary = summaryOf(lead?.title);
   const telling = summary && !/^[~/]/.test(summary) && !summary.includes("@") &&
     ![program?.name?.toLowerCase(), program?.key].includes(summary.toLowerCase());
-  return { program, name: !tab.named && telling ? summary : tab.name };
+  return { lead, program, name: !tab.named && telling ? summary : tab.name };
 }
 
 // A pane's label in a split tab: a mod pane's name; a shell's folder (its title is a path,
@@ -218,6 +218,7 @@ export default class Spaces extends View {
     this.activeAt = -1; // the active row's place among the list's children, -1 when not drawn
     this.marks = {}; // see mark()
     this.machines = [];
+    this.summaries = stored("tabs.summaries", {}); // see tabRow()
     this.reconnecting = stored("machines.reconnecting", {});
     if (typeof this.reconnecting !== "object" || Array.isArray(this.reconnecting)) this.reconnecting = {};
     for (const state of Object.values(this.reconnecting)) if (state && typeof state === "object") state.busy = false;
@@ -896,7 +897,17 @@ export default class Spaces extends View {
   tabRow({ w, first }, c, ps, level, t, split = 0) {
     const label = tabLabel(c, ps);
     const program = split ? null : label.program;
-    const name = split ? (c.named ? c.name : "Split view") : label.name;
+    // A hibernated session (conductr-chrome) shows a shell that still carries its agent.session label:
+    // the row keeps the summary its agent last gave, with a moon.
+    // ponytail: summaries of closed terminals stay in localStorage; prune them if the list grows large.
+    const terminal = label.lead?.terminal;
+    const asleep = !split && Boolean(program?.shell) && Boolean(terminals().find((one) => one.address === terminal)?.labels?.["agent.session"]);
+    // A starting agent's title is still its terminal's address.
+    if (!split && program?.agent && !c.named && ![c.name, terminal, this.summaries[terminal]].includes(label.name)) {
+      this.summaries[terminal] = label.name;
+      localStorage.setItem("tabs.summaries", JSON.stringify(this.summaries));
+    }
+    const name = split ? (c.named ? c.name : "Split view") : asleep && !c.named ? this.summaries[terminal] ?? c.name : label.name;
     const on = w.active && c.active && !split && !creating();
     // Unread: an agent finished while you weren't looking ("done"), or you marked it unread.
     const marked = shared(UNREAD) ?? [];
@@ -949,7 +960,8 @@ export default class Spaces extends View {
         cx.stop_propagation();
         openOverlay({ mod: "conductr-menu", kind: "popup", width: 200, props: { tab: split ? "split" : "tab", target: { id: c.id, space: w.id, agent: ps.some((p) => p.tab === c.id && p.program?.agent) } } });
       })
-      .child(split ? svg("mods/workspace-chrome/panel-right.svg").size(13).flex_none().text_color(t.dim) : leadIcon(c.status, program, t))
+      .child(split ? svg("mods/workspace-chrome/panel-right.svg").size(13).flex_none().text_color(t.dim)
+        : asleep ? svg("mods/conductr-settings/lucide/moon.svg").size(13).flex_none().text_color(t.dim) : leadIcon(c.status, program, t))
       .when(!split, (el) => el.child(div().flex_1().min_w(0).truncate()
         .child(c.zoomed && !ps.some((p) => p.tab === c.id && p.mod === "conductr-chat") ? `${name} Z` : name)))
       .when(Boolean(split), (el) => el.child(div().flex_shrink(1).min_w(0).truncate().child(name))

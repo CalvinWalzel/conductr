@@ -25,6 +25,17 @@ On the first start, a setup dialog checks the programs Conductr uses (`git`, `gh
 
 It also asks for your branch prefix and the prompt that Create PR sends. Settings opens it again.
 
+## Idle sessions
+
+With the resume hooks, a Claude Code session that sits idle in a hidden tab for 30 minutes stops, to
+free its memory. It resumes when you open its tab. Settings changes the time, and 0 turns this off.
+An unsent draft and a background task of that session are lost. After a reboot, a session also
+resumes only when you open its tab. To hibernate a session at once, right-click its tab in the
+sidebar.
+
+Claude Code updates itself, but a running session keeps its old version. While such sessions run, a
+Claude button shows next to Settings. It restarts the ones that are not busy on the new version.
+
 ## Updates
 
 Herdr checks for a new release every hour. When one exists, a blue button shows next to Settings.

@@ -4,6 +4,7 @@
 //   conductr-settings.pr-prompt      string: what Create PR sends (a /skill works too)
 //   conductr-settings.main-branches  string[]
 //   conductr-settings.branch-prefix  string: what new worktree branches start with, e.g. "calvin/"
+//   conductr-settings.hibernate-minutes  number: conductr-chrome stops a Claude Code session unused that long (0: never)
 //   conductr-settings.icons          { [repo key]: { kind: "icon" | "emoji" | "image", value } }
 //   conductr-settings.scripts        { [repo key]: { setup?, archive? } }: overrides of the repo's
 //                                  .conductor/settings.toml, run by conductr-worktree ("" runs nothing)
@@ -20,6 +21,7 @@ const SCRIPT_KINDS = [["setup", "Setup script", "Runs when a new worktree is cre
 const PR_PROMPT = "conductr-settings.pr-prompt";
 const MAIN_BRANCHES = "conductr-settings.main-branches";
 const BRANCH_PREFIX = "conductr-settings.branch-prefix";
+const HIBERNATE = "conductr-settings.hibernate-minutes";
 const DEFAULT_PR_PROMPT = "Create a draft pull request for this branch. Commit anything uncommitted, push the branch, write a short title and a description from the commits and the diff, then give me the link.";
 const DEFAULT_BRANCHES = ["main", "master", "main-dev"];
 const HERE = "mods/conductr-settings";
@@ -67,6 +69,11 @@ export default class Settings extends View {
     });
     this.prefix = InputState.new({ value: shared(BRANCH_PREFIX) ?? "", placeholder: "yourname/" });
     this.prefix.on("change", () => setShared(BRANCH_PREFIX, this.prefix.value().trim() || null));
+    this.hibernate = InputState.new({ value: String(shared(HIBERNATE) ?? 30), placeholder: "30" });
+    this.hibernate.on("change", () => {
+      const minutes = parseFloat(this.hibernate.value());
+      setShared(HIBERNATE, minutes >= 0 ? minutes : null);
+    });
     this.search = InputState.new({ placeholder: "Search" });
     this.search.on("change", (_e, cx) => cx.notify());
 
@@ -243,6 +250,7 @@ export default class Settings extends View {
         div().w(420).p(8).rounded(8).border_1().border_color(t.input).bg(t.background).child(Textarea.new(this.prPrompt).text_size(12.5).text_color(t.foreground)), t))
       .child(this.field("Branch prefix", "What new worktree branches start with, like yourname/.", this.input(this.prefix, t), t))
       .child(this.field("Main branches", "Branches without a Create PR button, comma separated.", this.input(this.branches, t), t))
+      .child(this.field("Hibernate agents after", "Minutes a Claude Code session sits idle in a hidden tab before it stops, to free its memory. It resumes when you open its tab. 0: never.", this.input(this.hibernate, t), t))
       .child(this.field("Setup", "Programs, resume hooks for Claude Code and Codex, and herdr-core's restore_screen.",
         div().id("run-setup").w(150).h(32).flex().items_center().justify_center().rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5)
           .cursor_pointer().hover((s) => s.bg(t.hover)).child("Run setup again")

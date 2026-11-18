@@ -63,6 +63,14 @@ function avatar(repo, t, size = 16) {
 }
 const tilde = (path) => (path.startsWith(home()) ? `~${path.slice(home().length)}` : path);
 
+// Hibernate, where these panes hold an agent session that is not busy: conductr-chrome's sessions.sh
+// stops it, and conductr-chrome resumes it when its tab shows again.
+function hibernate(match) {
+  const idle = panes().filter((pane) => match(pane) && pane.terminal && !pane.terminal.includes("/") && pane.program?.agent && !["working", "blocked"].includes(pane.status))
+    .map((pane) => pane.terminal);
+  return idle.length ? [["Hibernate", "exec", { cmd: "sh", args: [`${appHome()}/mods/conductr-chrome/sessions.sh`, "hibernate", ...idle] }, { icon: "mods/conductr-settings/lucide/moon.svg" }]] : [];
+}
+
 function items(p, git, agents, recents) {
   p = p ?? {};
   const tg = p.target ?? {};
@@ -102,6 +110,7 @@ function items(p, git, agents, recents) {
       const unread = (shared("conductr-spaces.unread") ?? []).includes(tg.id);
       return [
         ...(tg.agent === false ? [] : [[unread ? "Mark as read" : "Mark as unread", "unread", { id: tg.id, unread: !unread }, { icon: "mods/conductr-menu/mail.svg" }]]),
+        ...hibernate((pane) => pane.tab === tg.id),
         ["Rename", "tab.rename", { id: tg.id }],
         ["Close", "tab.close", { id: tg.id }],
       ];
@@ -109,6 +118,7 @@ function items(p, git, agents, recents) {
     case "split":
       // A split tab's row in conductr-spaces: Close ends every pane in it.
       return [
+        ...hibernate((pane) => pane.tab === tg.id),
         ["Rename", "tab.rename", { id: tg.id }],
         ["Close", "tab.close", { id: tg.id }],
       ];
@@ -118,6 +128,7 @@ function items(p, git, agents, recents) {
       const unread = (shared("conductr-spaces.unread") ?? []).includes(tg.pane);
       return [
         ...(tg.agent ? [[unread ? "Mark as read" : "Mark as unread", "unread", { id: tg.pane, unread: !unread }, { icon: "mods/conductr-menu/mail.svg" }]] : []),
+        ...hibernate((pane) => pane.pane === tg.pane),
         ["Rename", "pane-rename", { pane: tg.pane, name: tg.name }, { icon: "square-pen" }],
         ["Close", "pane.close", { pane: tg.pane }],
       ];
